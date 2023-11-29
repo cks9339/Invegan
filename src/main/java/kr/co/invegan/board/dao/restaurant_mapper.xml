@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC   "-//mybatis.org//DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+>
+	<!-- generatedKey 사용하기(방금 인서트한 데이터의 pk값)
+			useGeneratedKeys="true"	: 사용 여부
+			keyColumn="idx"				: 어떤 컬럼값을 가져올것인가
+			keyProperty="idx"				: DTO의 어떤 속성(필드)에 넣을 것인가?
+	-->
+<mapper namespace="kr.co.invegan.board.dao.RestaurantDAO">
+
+	<insert
+		useGeneratedKeys="true"
+		keyColumn="post_id"
+		keyProperty="post_id"
+		id="boardWrite"
+		parameterType="kr.co.invegan.board.dto.RestaurantDTO">
+		INSERT INTO Board(user_no ,title,content,category)
+			VALUES(#{user_no},#{title},#{content},#{category})
+	</insert>
+	
+	<insert id="restaurantWrite" parameterType="kr.co.invegan.board.dto.RestaurantDTO">
+		INSERT INTO Restaurant(post_id,address,phone,hours,lat,lng)
+			VALUES(#{post_id},#{address},#{phone},#{hours},#{lat},#{lng})
+	</insert>
+	
+	<insert id="menuWrite" parameterType="kr.co.invegan.board.dto.MenuDTO">
+		INSERT INTO RestaurantMenu (post_id,menu_name,price,vegan_type)
+			VALUES(#{post_id},#{menu_name},#{price},#{vegan_type})
+	</insert>
+	
+	<insert id="photoWrite">
+		INSERT INTO ImageTable(idx,server_file_name,category) VALUES(#{param1},#{param2},#{param3})
+	</insert>
+	
+	
+	<select id="restaurantList_admin_totalpage" resultType="int">
+		SELECT CEIL(COUNT(post_id)/20) AS pages FROM Board WHERE category ='식당'
+	</select>
+	
+	<select id="restaurantList_admin" resultType="kr.co.invegan.board.dto.restaurantFilterListDTO">
+		SELECT r.post_id, b.title, v.vegan, im.server_file_name, b.is_hidden
+		,CAST(6371 * ACOS(COS(RADIANS(#{lat})) * COS(RADIANS(r.lat)) * COS(RADIANS(#{lng} - r.lng)) + SIN(RADIANS(#{lat})) * SIN(RADIANS(r.lat))) AS SIGNED) AS km
+		FROM Restaurant r 
+		LEFT JOIN (SELECT post_id , GROUP_CONCAT(DISTINCT vegan_type ORDER by vegan_type SEPARATOR ',') AS vegan FROM RestaurantMenu GROUP BY post_id) AS v ON r.post_id =v.post_id
+		LEFT JOIN (SELECT idx, server_file_name FROM ImageTable it WHERE category ='식당' GROUP BY idx) AS im ON r.post_id = im.idx
+		LEFT JOIN Board b ON r.post_id = b.post_id
+		ORDER BY km ASC LIMIT #{p}, 20
+	</select>
+	
+	<select id="restaurantList_user_totalpage" resultType="int">
+		SELECT CEIL(COUNT(post_id)/20) AS pages FROM Board WHERE category ='식당' AND is_hidden = 0
+	</select>
+	
+	<select id="restaurantList_user" resultType="kr.co.invegan.board.dto.restaurantFilterListDTO">
+		SELECT r.post_id, b.title, v.vegan, im.server_file_name, b.is_hidden
+		,CAST(6371 * ACOS(COS(RADIANS(#{lat})) * COS(RADIANS(r.lat)) * COS(RADIANS(#{lng} - r.lng)) + SIN(RADIANS(#{lat})) * SIN(RADIANS(r.lat))) AS SIGNED) AS km
+		FROM Restaurant r 
+		LEFT JOIN (SELECT post_id , GROUP_CONCAT(DISTINCT vegan_type ORDER by vegan_type SEPARATOR ',') AS vegan FROM RestaurantMenu GROUP BY post_id) AS v ON r.post_id =v.post_id
+		LEFT JOIN (SELECT idx, server_file_name FROM ImageTable it WHERE category ='식당' GROUP BY idx) AS im ON r.post_id = im.idx
+		LEFT JOIN Board b ON r.post_id = b.post_id
+		WHERE b.is_hidden = 0
+		ORDER BY km ASC LIMIT #{p}, 20
+	</select>
+	
+	
+	<select id="restaurantDetail" resultType="kr.co.invegan.board.dto.RestaurantDTO">
+		SELECT * from Board b natural join Restaurant r WHERE post_id = #{param1}
+	</select>
+	
+	<select id="menuDetail" resultType="kr.co.invegan.board.dto.MenuDTO">
+		SELECT * FROM RestaurantMenu WHERE post_id = #{param1};
+	</select>
+	
+	<select id="photoList" resultType="String">
+		SELECT server_file_name FROM ImageTable WHERE category = '식당' AND idx = #{param1}
+			ORDER BY image_id ASC;
+	</select>
+	
+	<update id="boardUpdate" parameterType="kr.co.invegan.board.dto.RestaurantDTO">
+		UPDATE Board SET title=#{title},content=#{content} WHERE post_id=#{post_id}
+	</update>
+	
+	<update id="restaurantUpdate" parameterType="kr.co.invegan.board.dto.RestaurantDTO">
+		UPDATE Restaurant set address=#{address},phone=#{phone},hours=#{hours},lat=#{lat},lng=#{lng}
+			WHERE post_id=#{post_id}
+	</update>
+
+	<delete id="menuDel">
+		DELETE FROM RestaurantMenu WHERE post_id=#{param1}
+	</delete>
+	
+	<delete id="photoDel">
+		DELETE FROM ImageTable WHERE category='식당' AND idx=#{param1} AND server_file_name=#{param2}
+	</delete>
+
+	<update id="hidden">
+		UPDATE Board SET is_hidden = 1 WHERE post_id =#{param1}
+	</update>
+	
+	<update id="visible">
+		UPDATE Board SET is_hidden = 0 WHERE post_id =#{param1}
+	</update>
+
+	<select id="favoriteChk" parameterType="int" resultType="int">
+		SELECT count(*) AS cnt FROM Favorite WHERE user_no =#{param1} AND post_id=#{param2}
+	</select>
+	
+	<insert id="favoriteInsert" parameterType="int">
+		INSERT INTO Favorite(user_no,post_id) VALUES(#{param1},#{param2});
+	</insert>
+	
+	<delete id="favoriteDel" parameterType="int">
+		DELETE FROM Favorite WHERE user_no =#{param1} AND post_id=#{param2}
+	</delete>
+	
+</mapper>
+
+
+
+
+
+

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC   "-//mybatis.org//DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+>
+
+<mapper namespace="kr.co.invegan.member.dao.MemberDAO">
+
+<!-- id pw pw확인 이메일 닉네임 생년월일 성별 비건목적 관심사  -->
+	<insert id="signup" parameterType="map">
+		INSERT INTO Members(id,pw,email,nickname,birthdate,gender,vegan_type,vegan_purpose,interests)
+			VALUES(#{id}, #{pw}, #{email}, #{nickname},#{birthdate},#{gender},#{vegan_type}, #{vegan_purpose}, #{interests})
+	</insert>
+	
+	<select id="login" parameterType="String" resultType="kr.co.invegan.member.dto.MemberDTO">
+		SELECT m.user_no, m.id , m.nickname, m.is_admin, img.profile_img from Members m 
+			LEFT JOIN (SELECT it.idx, it.server_file_name AS profile_img FROM ImageTable it WHERE category = '회원') AS img 
+			ON m.user_no = img.idx WHERE id=#{id} AND pw=#{pw}
+	</select>
+	
+	<select id="findId" parameterType="String" resultType="String">
+		SELECT id FROM Members WHERE email=#{email} 
+	</select>
+	
+	<select id="findPw" parameterType="String" resultType="String">
+		SELECT pw FROM Members WHERE id=#{id} AND email=#{email}
+	</select>
+	
+	<select id="validateId" resultType="int">
+		SELECT count(id) from Members WHERE id =#{validateId}
+	</select>
+	
+</mapper>

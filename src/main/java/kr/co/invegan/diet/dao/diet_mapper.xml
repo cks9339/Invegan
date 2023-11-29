@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC   "-//mybatis.org//DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+>
+
+<mapper namespace="kr.co.invegan.diet.dao.DietDAO">
+<!-- 식품 검색 -->
+	<select id="findFoodList" parameterType="String" resultType="kr.co.invegan.diet.dto.FoodDataDTO">
+		SELECT * FROM FoodData 
+			WHERE REPLACE(food_name,' ','') LIKE CONCAT('%',REPLACE(#{param1},' ',''),'%')
+			ORDER BY CASE 
+				WHEN food_name LIKE #{param1} THEN 1
+				WHEN food_name LIKE CONCAT(#{param1}, ',%') THEN 2
+	 			WHEN food_name LIKE CONCAT(#{param1}, '%') THEN 3
+				WHEN food_name LIKE CONCAT('%',#{param1}, '%') THEN 4
+				WHEN food_name LIKE CONCAT('%', #{param1}) THEN 5
+			ELSE 0 END;
+	</select>
+<!-- 선택한 식품 영양소 보기 -->	
+	<select id="showNutri" parameterType="int" resultType="kr.co.invegan.diet.dto.FoodDataDTO">
+		SELECT * FROM FoodData 
+			WHERE food_id = #{param1};
+	</select>
+<!-- ? -->	
+	<select id="getServingSize" parameterType="int" resultType="int">
+		SELECT serving_size FROM FoodData WHERE food_id = #{food_id};
+	</select>
+	
+	
+<!-- 식단 추가하기 -->
+	<insert 
+		useGeneratedKeys="true"
+		keyColumn="diet_id"
+		keyProperty="diet_id"
+		id="addDiet" parameterType="kr.co.invegan.diet.dto.DietDTO">
+		INSERT INTO Diet(user_no,date,diet_category) 
+			VALUES(
+				(SELECT user_no FROM Members WHERE id=#{user_no})
+				, #{date}, #{diet_category});
+	</insert>
+	<insert
+		useGeneratedKeys="true"
+		keyColumn="menu_id"
+		keyProperty="menu_id" 
+		id="addMenu" parameterType="kr.co.invegan.diet.dto.DietDTO">
+		INSERT INTO Menu(user_no,recipe_name,category)
+			VALUES(
+				(SELECT user_no FROM Members WHERE id=#{user_no})
+				,#{recipe_name},#{category});
+	</insert>
+ 	<insert id="addMaterial" parameterType="hashmap">
+		INSERT INTO Material(food_id,grams,menu_id)
+			VALUES(#{food_id}, #{grams}, #{menu_id});
+	</insert>
+	<insert id="addDietComp" parameterType="hashmap">
+		INSERT INTO Diet_composition(diet_id,menu_id)
+			VALUES(#{diet_id},#{menu_id});
+	</insert>
+<!--  -->	
+	
+	
+<!-- 식단 불러오기 -->
+	<select id="getDietList" parameterType="hashmap" resultType="kr.co.invegan.diet.dto.DietDTO">
+		SELECT d.date, d.diet_id, d.diet_category, m.menu_id, m.recipe_name, m.category ,fd.food_id ,fd.food_name, 
+			SUM(mt.grams) AS grams , SUM(ROUND((fd.kcal * mt.grams / fd.serving_size),0))AS kcal
+		FROM Diet d
+			INNER JOIN Diet_composition dc ON d.diet_id = dc.diet_id
+			INNER JOIN Menu m ON dc.menu_id = m.menu_id
+			INNER JOIN Material mt ON m.menu_id = mt.menu_id
+			INNER JOIN FoodData fd ON mt.food_id = fd.food_id
+		WHERE d.user_no = #{loginId} AND d.date = #{date}
+		GROUP BY m.menu_id;
+	</select>
+	
+<!-- 영양소 총 합계 불러오기 -->
+	<select id="getAllNutri" parameterType="hashMap" resultType="kr.co.invegan.diet.dto.FoodDataDTO">
+		SELECT
+		    SUM(ROUND((fd.kcal * mt.grams / fd.serving_size), 0)) AS kcal,
+		    SUM(ROUND((fd.carb * mt.grams / fd.serving_size), 2)) AS carb,
+		    SUM(ROUND((fd.prot * mt.grams / fd.serving_size), 2)) AS prot,
+		    SUM(ROUND((fd.fat * mt.grams / fd.serving_size), 2)) AS fat,
+		    SUM(ROUND((fd.sugar * mt.grams / fd.serving_size), 2)) AS sugar,
+		    SUM(ROUND((fd.fiber * mt.grams / fd.serving_size), 2)) AS fiber,
+		    SUM(ROUND((fd.ca * mt.grams / fd.serving_size), 2)) AS ca,
+		    SUM(ROUND((fd.fe * mt.grams / fd.serving_size), 2)) AS fe,
+		    SUM(ROUND((fd.mg * mt.grams / fd.serving_size), 2)) AS mg,
+		    SUM(ROUND((fd.p * mt.grams / fd.serving_size), 2)) AS p,
+		    SUM(ROUND((fd.k * mt.grams / fd.serving_size), 2)) AS k,
+		    SUM(ROUND((fd.na * mt.grams / fd.serving_size), 2)) AS na,
+		    SUM(ROUND((fd.zn * mt.grams / fd.serving_size), 2)) AS zn,
+		    SUM(ROUND((fd.vit_a * mt.grams / fd.serving_size), 2)) AS vit_a,
+		    SUM(ROUND((fd.vit_b6 * mt.grams / fd.serving_size), 2)) AS vit_b6,
+		    SUM(ROUND((fd.vit_b12 * mt.grams / fd.serving_size), 2)) AS vit_b12,
+		    SUM(ROUND((fd.vit_c * mt.grams / fd.serving_size), 2)) AS vit_c,
+		    SUM(ROUND((fd.essential * mt.grams / fd.serving_size), 2)) AS essential,
+		    SUM(ROUND((fd.omega3 * mt.grams / fd.serving_size), 2)) AS omega3
+		FROM Diet d
+			INNER JOIN Diet_composition dc ON d.diet_id = dc.diet_id
+			INNER JOIN Menu m ON dc.menu_id = m.menu_id
+			INNER JOIN Material mt ON m.menu_id = mt.menu_id
+			INNER JOIN FoodData fd ON mt.food_id = fd.food_id
+		WHERE 
+			d.user_no = #{loginUser_no} AND d.date = #{selectDate};
+	</select>
+<!-- 특정 식단 영양소 불러오기 -->
+	<select id="getNutri" parameterType="hashmap" resultType="kr.co.invegan.diet.dto.FoodDataDTO">
+		SELECT
+		    IFNULL(SUM(ROUND((fd.kcal * mt.grams / fd.serving_size), 0)),0) AS kcal,
+		    IFNULL(SUM(ROUND((fd.carb * mt.grams / fd.serving_size), 2)),0) AS carb,
+		    IFNULL(SUM(ROUND((fd.prot * mt.grams / fd.serving_size), 2)),0) AS prot,
+		    IFNULL(SUM(ROUND((fd.fat * mt.grams / fd.serving_size), 2)),0) AS fat,
+		    IFNULL(SUM(ROUND((fd.sugar * mt.grams / fd.serving_size), 2)),0) AS sugar,
+		    IFNULL(SUM(ROUND((fd.fiber * mt.grams / fd.serving_size), 2)),0) AS fiber,
+		    IFNULL(SUM(ROUND((fd.ca * mt.grams / fd.serving_size), 2)),0) AS ca,
+		    IFNULL(SUM(ROUND((fd.fe * mt.grams / fd.serving_size), 2)),0) AS fe,
+		    IFNULL(SUM(ROUND((fd.mg * mt.grams / fd.serving_size), 2)),0) AS mg,
+		    IFNULL(SUM(ROUND((fd.p * mt.grams / fd.serving_size), 2)),0) AS p,
+		    IFNULL(SUM(ROUND((fd.k * mt.grams / fd.serving_size), 2)),0) AS k,
+		    IFNULL(SUM(ROUND((fd.na * mt.grams / fd.serving_size), 2)),0) AS na,
+		    IFNULL(SUM(ROUND((fd.zn * mt.grams / fd.serving_size), 2)),0) AS zn,
+		    IFNULL(SUM(ROUND((fd.vit_a * mt.grams / fd.serving_size), 2)),0) AS vit_a,
+		    IFNULL(SUM(ROUND((fd.vit_b6 * mt.grams / fd.serving_size), 2)),0) AS vit_b6,
+		    IFNULL(SUM(ROUND((fd.vit_b12 * mt.grams / fd.serving_size), 2)),0) AS vit_b12,
+		    IFNULL(SUM(ROUND((fd.vit_c * mt.grams / fd.serving_size), 2)),0) AS vit_c,
+		    IFNULL(SUM(ROUND((fd.essential * mt.grams / fd.serving_size), 2)),0) AS essential,
+		    IFNULL(SUM(ROUND((fd.omega3 * mt.grams / fd.serving_size), 2)),0) AS omega3
+		FROM Diet d
+			INNER JOIN Diet_composition dc ON d.diet_id = dc.diet_id
+			INNER JOIN Menu m ON dc.menu_id = m.menu_id
+			INNER JOIN Material mt ON m.menu_id = mt.menu_id
+			INNER JOIN FoodData fd ON mt.food_id = fd.food_id
+		WHERE
+		    d.user_no = #{loginUser_no} AND d.date = #{selectDate} AND d.diet_category = #{dietCate};
+	</select>
+	
+	<insert id="addMaterialAdm" parameterType="hashMap"  >
+		INSERT INTO FoodData(data_type ,food_name,food_category, production, serving_size,
+			kcal,carb, prot, fat, 
+			sugar, fiber, ca, fe, mg, p, k, na, zn, vit_a, vit_b6, vit_b12
+			, vit_c, essential, omega3)
+		VALUES (
+			'추가한식품', #{food_name}, #{food_category}, #{production}, #{serving_size}
+			, #{kcal}, #{carb}, #{prot}, #{fat}, #{sugar}
+			, #{fiber}, #{ca}, #{fe}, #{mg}
+			, #{p}, #{k}, #{na}, #{zn}, #{vit_a}, #{vit_b6}
+			, #{vit_b12}, #{vit_c}, #{essential}, #{omega3}
+		)
+		</insert>
+<!-- 회원별 1일 권장 섭취량 불러오기 -->	
+	<select id="getDailyNutri" parameterType="int" resultType="kr.co.invegan.diet.dto.DailyNutriDTO">
+		SELECT * FROM DailyNutrition dn INNER JOIN Members m
+		ON m.user_no = #{loginUser_no} AND dn.gender = m.gender 
+		WHERE (
+			select ROUND( DATEDIFF( CURDATE(), m.birthdate ) /365 , 0)+1 AS age 
+			FROM Members m 
+			WHERE user_no = #{loginUser_no}
+		) 
+		BETWEEN CAST(SUBSTRING_INDEX(dn.age,'-',1)AS INT) 
+		AND CAST(SUBSTRING_INDEX(dn.age,'-',-1)AS INT);
+	</select>
+	
+	
+<!-- 일자별 칼로리 합계 가져오기 -->	
+	<select id="getMonthKcal" parameterType="map" resultType="kr.co.invegan.diet.dto.GetMonthKcalDTO">
+	SELECT
+    	d.date,
+    	SUM(ROUND(fd.kcal * (mt.grams / fd.serving_size), 0)) AS total_kcal,
+    	(SELECT kcal AS stdKcal 
+    	FROM DailyNutrition dn 
+    		INNER JOIN Members m ON m.user_no = #{loginUser_no} AND dn.gender = m.gender 
+    	WHERE (
+    		SELECT ROUND(DATEDIFF(CURDATE(), m.birthdate) / 365, 0) + 1 AS age 
+        	FROM Members m 
+        	WHERE user_no = #{loginUser_no}
+        )
+        BETWEEN CAST(SUBSTRING_INDEX(dn.age,'-',1)AS INT) 
+		AND CAST(SUBSTRING_INDEX(dn.age,'-',-1)AS INT)
+	    ) AS stdKcal
+	FROM
+	    Diet d
+		INNER JOIN Diet_composition dc ON d.diet_id = dc.diet_id
+		INNER JOIN Menu m ON dc.menu_id = m.menu_id
+		INNER JOIN Material mt ON m.menu_id = mt.menu_id
+		INNER JOIN FoodData fd ON mt.food_id = fd.food_id
+	WHERE
+	    d.user_no = #{loginUser_no} AND d.date LIKE CONCAT(#{yearMonth}, '%')  
+	GROUP BY date;
+	</select>
+
+	
+<!-- 로그인 회원 체크 -->
+	<select id="getUserNo" parameterType="hashmap" resultType="int">
+		SELECT user_no FROM Menu m WHERE menu_id = #{menu_id};
+	</select>
+	
+	<!-- 메뉴 삭제 -->
+	<delete id="delMaterialTbl" parameterType="hashMap">
+		DELETE FROM Material WHERE menu_id = ${menu_id};
+	</delete>
+	<delete id="delDietCompTbl" parameterType="hashMap">
+		DELETE FROM Diet_composition WHERE diet_id = ${diet_id};
+	</delete>
+	<delete id="delMenuTbl" parameterType="hashMap">
+		DELETE FROM Menu WHERE menu_id = ${menu_id};
+	</delete>
+	<delete id="delDietTbl" parameterType="hashMap">
+		DELETE FROM Diet WHERE diet_id = ${diet_id};
+	</delete>
+	
+	
+	
+	
+	
+</mapper>

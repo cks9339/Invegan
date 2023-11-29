@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC   "-//mybatis.org//DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+>
+
+<mapper namespace="kr.co.invegan.admin.dao.MemberManagementDAO">
+
+	<select id="memberList" resultType="kr.co.invegan.member.dto.MemberDTO">
+		SELECT user_no,id,nickname,join_date, is_suspended,is_admin FROM Members ORDER BY join_date ASC LIMIT 10 OFFSET #{param2}
+	</select>
+	
+	<select id="totalPage" resultType="int">
+		SELECT ceil(count(user_no)/10) AS pages FROM Members
+	</select>
+	
+	<select id="userInfo" resultType="kr.co.invegan.member.dto.MemberDTO">
+    SELECT 
+        DATE_FORMAT(m1.join_date, '%Y-%m-%d') AS join_date, 
+        m1.id, 
+        m1.birthdate, 
+        m1.gender, 
+        m1.nickname, 
+        m1.vegan_type, 
+        m1.vegan_purpose, 
+        m1.user_no,
+        m1.is_admin,
+        m1.interests,
+        it.server_file_name AS profile_image
+    FROM 
+        Members m1
+    LEFT JOIN 
+        ImageTable it ON m1.user_no = it.idx AND it.category = '회원'
+    WHERE 
+        m1.id = #{param1}
+	</select>
+	
+
+</mapper>

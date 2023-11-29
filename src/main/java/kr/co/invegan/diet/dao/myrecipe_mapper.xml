@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC   "-//mybatis.org//DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+>
+
+<mapper namespace="kr.co.invegan.diet.dao.MyRecipeDAO">
+	<select id = "mlist" parameterType="string" resultType="kr.co.invegan.diet.dto.FoodDataDTO">
+		SELECT * FROM FoodData 
+         WHERE REPLACE(food_name,' ','') LIKE CONCAT('%',REPLACE(#{param1},' ',''),'%')
+         ORDER BY CASE 
+            WHEN food_name LIKE #{param1} THEN 1
+            WHEN food_name LIKE CONCAT(#{param1}, ',%') THEN 2
+             WHEN food_name LIKE CONCAT(#{param1}, '%') THEN 3
+            WHEN food_name LIKE CONCAT('%',#{param1}, '%') THEN 4
+            WHEN food_name LIKE CONCAT('%', #{param1}) THEN 5
+         ELSE 0 END;
+	</select>
+	
+	<insert id = "mMaterial" parameterType="map">
+		INSERT INTO Material (food_id, grams, menu_id) VALUES (#{param1}, #{param2}, #{param3});
+	</insert>
+	
+	<insert id="rListUpdate" parameterType="map">
+	    INSERT INTO Menu (recipe_name, user_no, category)
+	    VALUES (#{recipe_name}, #{user_no}, '나만의레시피')
+	</insert>
+
+	<select id = "mrlist" parameterType="int" resultType="kr.co.invegan.diet.dto.MyRecipeDTO">
+		SELECT m.menu_id, m.recipe_name, sum(m2.grams) AS grams,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.kcal, 0)) AS kcal, m.hidden
+			FROM Menu m LEFT JOIN Material m2
+									ON m.menu_id = m2.menu_id 
+								  LEFT JOIN FoodData fd 
+								   	ON m2.food_id = fd.food_id
+		WHERE m.category = '나만의레시피' AND m.user_no = #{user_no}
+		GROUP BY m.menu_id DESC;
+	</select>
+	
+	<select id = "rMaterial" parameterType="int" resultType="kr.co.invegan.diet.dto.MyRecipeDTO">
+		SELECT m.material_id, m.food_id, fd.food_name, m.grams, ROUND((m.grams / fd.serving_size) * fd.kcal, 0) AS kcal
+			FROM Material m JOIN FoodData fd ON m.food_id = fd.food_id 
+		WHERE menu_id = #{menu_id};
+	</select>
+	
+	<delete id = "mdelete" parameterType="int">
+		DELETE FROM Material WHERE material_id = #{material_id};
+	</delete>
+	
+	<delete id = "rdelete" parameterType="int">
+		UPDATE Menu SET hidden = 1 WHERE menu_id = #{menu_id};
+	</delete>
+
+	<select id = "rNutrido" parameterType="int" resultType="kr.co.invegan.diet.dto.FoodDataDTO">
+		SELECT m.recipe_name,
+			sum(m2.grams) AS grams,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.kcal, 0)) AS kcal,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.prot, 0)) AS prot,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.fat, 0)) AS fat,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.carb, 0)) AS carb,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.sugar, 0)) AS sugar,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.fiber, 0)) AS fiber,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.ca, 0)) AS ca,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.fe, 0)) AS fe,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.mg, 0)) AS mg,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.p, 0)) AS p,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.k, 0)) AS k,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.na, 0)) AS na,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.zn, 0)) AS zn,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.vit_a, 0)) AS vit_a,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.vit_b6, 0)) AS vit_b6,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.vit_b12, 0)) AS vit_b12,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.vit_c, 0)) AS vit_c,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.essential, 0)) AS essential,
+			SUM(ROUND((m2.grams / fd.serving_size) * fd.omega3, 0)) AS omega3
+		FROM FoodData fd JOIN Material m2
+									ON m2.food_id = fd.food_id 
+						  			JOIN Menu m
+						   			ON m.menu_id = m2.menu_id
+		WHERE m.menu_id = #{menu_id}
+	</select>
+	
+	<select id="mNutrido" parameterType="int" resultType="kr.co.invegan.diet.dto.FoodDataDTO">
+		select * from FoodData fd JOIN Material m ON fd.food_id = m.food_id WHERE material_id = #{material_id};
+	</select>
+	
+	<insert 
+      useGeneratedKeys="true"
+      keyColumn="diet_id"
+      keyProperty="diet_id"
+      id="dinsert" parameterType="kr.co.invegan.diet.dto.DietDTO">
+      INSERT INTO Diet(user_no, date, diet_category) 
+         VALUES(#{user_no}, #{date}, #{diet_category});
+   </insert>
+
+	<insert id="dcinsert" parameterType="hashmap">
+      INSERT INTO Diet_composition(diet_id,menu_id)
+         VALUES(#{diet_id},#{menu_id});
+   </insert>
+
+</mapper>

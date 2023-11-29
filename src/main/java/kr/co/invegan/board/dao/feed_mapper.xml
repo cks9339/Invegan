@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.invegan.board.dao.FeedDAO">
+
+	<insert useGeneratedKeys="true" keyColumn="post_id"
+		keyProperty="post_id" id="feedWrite"
+		parameterType="kr.co.invegan.board.dto.FeedDTO">
+		INSERT INTO Board (title,content,is_hidden,category,user_no)
+		VALUES ('-',#{content},'0','피드','${user_no}');
+	</insert>
+
+	<insert useGeneratedKeys="true" keyColumn="tag_id"
+		keyProperty="tag_id" id="tagWrite"
+		parameterType="kr.co.invegan.board.dto.FeedDTO">
+		INSERT INTO Tags (tag_content) values(#{tag_content});
+	</insert>
+
+	<insert id="feedtagWrite"
+		parameterType="kr.co.invegan.board.dto.FeedDTO">
+		INSERT INTO FeedTags (tag_id,post_id)
+		values(#{tag_id},#{post_id});
+	</insert>
+
+	<insert id="feedWritePhoto">
+		INSERT INTO ImageTable (server_file_name,idx,category)
+		values(#{server_file_name},#{postidx},'피드');
+	</insert>
+
+	<select id="list"
+		resultType="kr.co.invegan.board.dto.FeedListDTO">
+
+		SELECT
+		it2.server_file_name AS profile_image,
+		m.nickname,
+		(
+		SELECT GROUP_CONCAT(t.tag_content)
+		FROM Tags t
+		WHERE t.tag_id IN (
+		SELECT tag_id
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		)
+		) AS tag_content,
+		b.content,
+		c.comment_text,
+		m2.nickname AS comment_user_nickname,
+		b.date,
+		GROUP_CONCAT(distinct it.image_id) AS image_ids,
+		b.post_id,
+		(
+		SELECT GROUP_CONCAT(ft.tag_id)
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		) AS tag_ids,
+		it.server_file_name
+		FROM
+		Members m
+		JOIN Board b ON m.user_no = b.user_no
+		LEFT JOIN Comments c ON b.post_id = c.post_id
+		JOIN ImageTable it ON b.post_id = it.idx
+		LEFT JOIN Members m2 ON c.user_no = m2.user_no
+		LEFT JOIN ImageTable it2 ON m.user_no = it2.idx AND it2.category = '회원'
+		WHERE
+		b.category = '피드'
+		GROUP BY b.post_id
+		ORDER BY
+		b.date DESC
+		LIMIT 0,#{param1};
+
+	</select>
+
+	<select id="detailList"
+		resultType="kr.co.invegan.board.dto.FeedListDTO">
+		SELECT
+		it2.server_file_name AS profile_image,
+		m.nickname,
+		(
+		SELECT GROUP_CONCAT(DISTINCT t.tag_content)
+		FROM Tags t
+		WHERE t.tag_id IN (
+		SELECT tag_id
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		)
+		) AS tag_content,
+		(
+		SELECT GROUP_CONCAT(distinct it.image_id)
+		FROM ImageTable it
+		WHERE it.idx = b.post_id
+		) AS image_ids,
+		(
+		SELECT GROUP_CONCAT(it.server_file_name)
+		FROM ImageTable it
+		WHERE it.idx = b.post_id
+		) AS server_file_name,
+		b.content,
+		(
+		SELECT GROUP_CONCAT(c.comment_text)
+		FROM Comments c
+		WHERE c.post_id = b.post_id
+		) AS comment_text,
+		m2.nickname AS comment_user_nickname,
+		b.date,
+		b.post_id,
+		(
+		SELECT GROUP_CONCAT(ft.tag_id)
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		) AS tag_ids
+		FROM
+		Members m
+		JOIN Board b ON m.user_no = b.user_no
+		LEFT JOIN Comments c ON b.post_id = c.post_id
+		JOIN ImageTable it ON b.post_id = it.idx AND it.category = '피드'
+		LEFT JOIN Members m2 ON c.user_no = m2.user_no
+		LEFT JOIN ImageTable it2 ON m.user_no = it2.idx AND it2.category = '회원'
+		WHERE
+		b.category = '피드'
+		AND b.post_id = #{post_id}
+		GROUP BY b.post_id
+		ORDER BY b.date DESC;
+	</select>
+
+	<select id="commentList"
+		resultType="kr.co.invegan.board.dto.FeedListDTO">
+		SELECT c.user_no,c.comment_text, m.nickname AS
+		comment_user_nickname,c.comment_id
+		FROM Comments c
+		JOIN Members m ON c.user_no = m.user_no
+		WHERE c.post_id = #{post_id};
+
+	</select>
+
+	<insert id="feedWriteComment"
+		parameterType="kr.co.invegan.board.dto.FeedListDTO">
+		INSERT INTO Comments (user_no,comment_text,is_hidden,rating,post_id) values
+		(#{user_no},#{comment_text},'0','0',#{post_id});
+	</insert>
+
+	<select id="findCommentUserNickName" resultType="String">
+		SELECT m.nickname from Members m where user_no =#{user_no}
+	</select>
+
+	<select id="findBoardUserno" resultType="Integer">
+		SELECT user_no from Board b WHERE post_id =#{post_id};
+	</select>
+
+
+	<delete id="feedDelComments">
+		DELETE from Comments where post_id = #{post_id};
+	</delete>
+
+	<delete id="feedDelPost">
+		DELETE from Board where post_id = #{post_id};
+	</delete>
+
+	<update id="feedUpdatePost">
+		UPDATE Board SET content = #{feed_content} WHERE category='피드' AND post_id =
+		#{post_id}
+	</update>
+
+	<delete id="feedDelComment">
+		DELETE from Comments WHERE comment_id = #{commentId}
+	</delete>
+
+	<update id="feedEditComment">
+		UPDATE Comments SET comment_text = #{commentTxt} where comment_id =
+		#{commentId};
+	</update>
+
+
+	<select id="searchByTag"
+		resultType="kr.co.invegan.board.dto.FeedListDTO">
+		SELECT
+		it2.server_file_name AS profile_image,
+		m.nickname,
+		(
+		SELECT GROUP_CONCAT(t.tag_content)
+		FROM Tags t
+		WHERE t.tag_id IN (
+		SELECT tag_id
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		)
+		) AS tag_content,
+		b.content,
+		c.comment_text,
+		m2.nickname AS comment_user_nickname,
+		b.date,
+		GROUP_CONCAT(distinct it.image_id) AS image_ids,
+		b.post_id,
+		(
+		SELECT GROUP_CONCAT(ft.tag_id)
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		) AS tag_ids,
+		it.server_file_name
+		FROM
+		Members m
+		JOIN Board b ON m.user_no = b.user_no
+		LEFT JOIN Comments c ON b.post_id = c.post_id
+		JOIN ImageTable it ON b.post_id = it.idx
+		LEFT JOIN Members m2 ON c.user_no = m2.user_no
+		LEFT JOIN ImageTable it2 ON m.user_no = it2.idx AND it2.category = '회원'
+		WHERE
+		b.category = '피드'
+		AND (
+		SELECT GROUP_CONCAT(t.tag_content)
+		FROM Tags t
+		WHERE t.tag_id IN (
+		SELECT tag_id
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		)
+		) LIKE #{param1}
+		GROUP BY b.post_id
+		ORDER BY
+		b.date DESC
+		LIMIT 0,#{param2}
+	</select>
+
+	<select id="autocomplete" parameterType="map" resultType="map">
+		SELECT tag_content, COUNT(*) AS tag_count
+		FROM Tags t
+		WHERE tag_content LIKE CONCAT('%', #{value}, '%')
+		GROUP BY tag_content
+	</select>
+
+	<select id="autoSearchTag"
+		resultType="kr.co.invegan.board.dto.FeedListDTO">
+		SELECT
+		it2.server_file_name AS profile_image,
+		m.nickname,
+		(
+		SELECT GROUP_CONCAT(t.tag_content)
+		FROM Tags t
+		WHERE t.tag_id IN (
+		SELECT tag_id
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		)
+		) AS tag_content,
+		b.content,
+		c.comment_text,
+		m2.nickname AS comment_user_nickname,
+		b.date,
+		GROUP_CONCAT(distinct it.image_id) AS image_ids,
+		b.post_id,
+		(
+		SELECT GROUP_CONCAT(ft.tag_id)
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		) AS tag_ids,
+		it.server_file_name
+		FROM
+		Members m
+		JOIN Board b ON m.user_no = b.user_no
+		LEFT JOIN Comments c ON b.post_id = c.post_id
+		JOIN ImageTable it ON b.post_id = it.idx
+		LEFT JOIN Members m2 ON c.user_no = m2.user_no
+		LEFT JOIN ImageTable it2 ON m.user_no = it2.idx AND it2.category = '회원'
+		WHERE
+		b.category = '피드'
+		AND (
+		SELECT GROUP_CONCAT(t.tag_content)
+		FROM Tags t
+		WHERE t.tag_id IN (
+		SELECT tag_id
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		)
+		) LIKE CONCAT('%', #{param1}, '%')
+		GROUP BY b.post_id
+		ORDER BY
+		b.date DESC
+		LIMIT 0,#{param2}
+	</select>
+
+
+	<delete id="feedImgDel">
+		DELETE FROM ImageTable WHERE server_file_name=#{fileName}
+	</delete>
+	
+	
+	<select id="nameSearch" resultType="kr.co.invegan.board.dto.FeedListDTO">
+		SELECT
+		it2.server_file_name AS profile_image,
+		m.nickname,
+		(
+		SELECT GROUP_CONCAT(t.tag_content)
+		FROM Tags t
+		WHERE t.tag_id IN (
+		SELECT tag_id
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		)
+		) AS tag_content,
+		b.content,
+		c.comment_text,
+		m2.nickname AS comment_user_nickname,
+		b.date,
+		GROUP_CONCAT(distinct it.image_id) AS image_ids,
+		b.post_id,
+		(
+		SELECT GROUP_CONCAT(ft.tag_id)
+		FROM FeedTags ft
+		WHERE ft.post_id = b.post_id
+		) AS tag_ids,
+		it.server_file_name
+		FROM
+		Members m
+		JOIN Board b ON m.user_no = b.user_no
+		LEFT JOIN Comments c ON b.post_id = c.post_id
+		JOIN ImageTable it ON b.post_id = it.idx
+		LEFT JOIN Members m2 ON c.user_no = m2.user_no
+		LEFT JOIN ImageTable it2 ON m.user_no = it2.idx AND it2.category = '회원'
+		WHERE
+		b.category = '피드' AND REPLACE (m.nickname,' ','') LIKE CONCAT('%',REPLACE(#{nameText},' ',''),'%')
+		GROUP BY b.post_id
+		ORDER BY
+		b.date DESC;
+	</select>
+	
+	<select id="mainClickFeed" parameterType="map" resultType="kr.co.invegan.board.dto.FeedListDTO">
+		SELECT
+			it2.server_file_name AS profile_image,
+			m.nickname,
+			(
+			SELECT GROUP_CONCAT(t.tag_content)
+			FROM Tags t
+			WHERE t.tag_id IN (
+			SELECT tag_id
+			FROM FeedTags ft
+			WHERE ft.post_id = b.post_id
+			)
+			) AS tag_content,
+			b.content,
+			c.comment_text,
+			m2.nickname AS comment_user_nickname,
+			b.date,
+			GROUP_CONCAT(distinct it.image_id) AS image_ids,
+			b.post_id,
+			(
+			SELECT GROUP_CONCAT(ft.tag_id)
+			FROM FeedTags ft
+			WHERE ft.post_id = b.post_id
+			) AS tag_ids,
+			it.server_file_name
+			FROM
+			Members m
+			JOIN Board b ON m.user_no = b.user_no
+			LEFT JOIN Comments c ON b.post_id = c.post_id
+			JOIN ImageTable it ON b.post_id = it.idx
+			LEFT JOIN Members m2 ON c.user_no = m2.user_no
+			LEFT JOIN ImageTable it2 ON m.user_no = it2.idx AND it2.category = '회원'
+			WHERE
+			b.category = '피드' AND m.nickname = #{nameText}
+			GROUP BY b.post_id
+			ORDER BY 
+				CASE
+					WHEN b.post_id = #{post_id} THEN 1
+					ELSE 2
+				END,
+				b.date DESC;
+	</select>
+</mapper>

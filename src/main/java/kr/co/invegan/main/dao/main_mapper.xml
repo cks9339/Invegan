@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC   "-//mybatis.org//DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+>
+
+<mapper namespace="kr.co.invegan.main.dao.MainDAO">
+
+	<select id="prf" resultType="kr.co.invegan.board.dto.RestaurantDTO">
+		SELECT post_id, address FROM Restaurant
+	</select>
+	
+	<select id="veganType" resultType="int">
+		SELECT vegan_type FROM Members WHERE user_no = #{param1}
+	</select>
+	
+	<select id="rangeCnt" resultType="kr.co.invegan.main.dto.distCntDTO">
+		SELECT
+<!-- 		    SUM(CASE WHEN tb.km BETWEEN 1 AND 5 THEN 1 ELSE 0 END) AS 'count5' -->
+<!-- 		    ,SUM(CASE WHEN tb.km BETWEEN 1 AND 10 THEN 1 ELSE 0 END) AS 'count10' -->
+		    SUM(CASE WHEN tb.km BETWEEN 1 AND 15 THEN 1 ELSE 0 END) AS 'count15'
+		FROM
+			(SELECT CAST(6371 * ACOS(COS(RADIANS(#{lat})) * COS(RADIANS(lat)) * COS(RADIANS(#{lng} - lng)) + SIN(RADIANS(#{lat})) * SIN(RADIANS(lat))) AS SIGNED) AS km from Restaurant r
+			WHERE r.post_id IN(SELECT post_id FROM RestaurantMenu WHERE vegan_type IN
+   				<foreach collection="list" item="item" open="(" close=")" separator=",">
+					#{item}
+				</foreach>
+			))	AS tb
+	</select>
+
+	<select id="restaurantFilterList" resultType="kr.co.invegan.board.dto.restaurantFilterListDTO">
+	SELECT b.post_id, b.title, dist.km, im.server_file_name, v.vegan
+	FROM Board b
+	RIGHT JOIN (SELECT post_id,CAST(6371 * ACOS(COS(RADIANS(#{lat})) * COS(RADIANS(lat)) * COS(RADIANS(#{lng} - lng)) + SIN(RADIANS(#{lat})) * SIN(RADIANS(lat))) AS SIGNED) AS km FROM Restaurant) AS dist ON b.post_id = dist.post_id
+	LEFT JOIN (SELECT idx, server_file_name FROM ImageTable it WHERE category ='식당' GROUP BY idx) AS im ON b.post_id = im.idx
+	LEFT JOIN (SELECT post_id , GROUP_CONCAT(DISTINCT vegan_type ORDER by vegan_type SEPARATOR ',') AS vegan FROM RestaurantMenu GROUP BY post_id) AS v ON b.post_id =v.post_id
+	WHERE b.post_id IN(SELECT post_id from RestaurantMenu where vegan_type IN(
+		<foreach collection="list" item="item" separator=",">
+			#{item}
+		</foreach>
+	))AND dist.km <![CDATA[<]]> #{dist} AND b.is_hidden = 0
+	ORDER BY dist.km ASC LIMIT 20
+	</select>
+	
+	<select id="interests" resultType="String">
+		SELECT interests FROM Members WHERE user_no = #{param1}
+	</select>
+	
+	<select id="feedFilterList" resultType="kr.co.invegan.board.dto.FeedListDTO">
+		SELECT b.post_id, m.nickname, m_img.server_file_name AS profile_image, b.content, b_img.server_file_name, tag.tag_content
+		FROM Board b
+		LEFT JOIN Members m ON m.user_no = b.user_no
+		LEFT JOIN (SELECT idx, server_file_name FROM ImageTable it WHERE category = '회원') AS m_img on m_img.idx = m.user_no
+		LEFT JOIN (SELECT idx, server_file_name FROM ImageTable it WHERE category = '피드' GROUP BY idx) AS b_img ON b_img.idx = b.post_id
+		LEFT JOIN (SELECT ft.post_id, GROUP_CONCAT(t.tag_content SEPARATOR ' ') AS tag_content FROM FeedTags ft LEFT JOIN Tags t ON ft.tag_id =t.tag_id GROUP BY ft.post_id) AS tag ON tag.post_id = b.post_id
+		WHERE b.category = '피드' AND b.is_hidden = 0
+		ORDER BY b.date DESC LIMIT 20;
+	</select>
+	
+	<select id="feedInterestFilterList" resultType="kr.co.invegan.board.dto.FeedListDTO">
+		SELECT b.post_id, m.nickname, m_img.server_file_name AS profile_image, b.content, b_img.server_file_name, tag.tag_content
+		FROM Board b
+		LEFT JOIN Members m ON m.user_no = b.user_no
+		LEFT JOIN (SELECT idx, server_file_name FROM ImageTable it WHERE category = '회원') AS m_img on m_img.idx = m.user_no
+		LEFT JOIN (SELECT idx, server_file_name FROM ImageTable it WHERE category = '피드' GROUP BY idx) AS b_img ON b_img.idx = b.post_id
+		LEFT JOIN (SELECT ft.post_id, GROUP_CONCAT(t.tag_content SEPARATOR ' ') AS tag_content FROM FeedTags ft LEFT JOIN Tags t ON ft.tag_id =t.tag_id GROUP BY ft.post_id) AS tag ON tag.post_id = b.post_id
+		WHERE (b.category = '피드' AND b.is_hidden = 0 AND(
+			<foreach collection="list" item="item" separator=" OR ">
+				tag.tag_content LIKE #{item}
+			</foreach>
+		)) ORDER BY b.date DESC LIMIT 20;
+	</select>
+	
+	
+</mapper>
